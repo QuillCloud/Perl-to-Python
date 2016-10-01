@@ -1,8 +1,7 @@
 #!/usr/bin/perl -w
 
 # written by Yunhe Zhang(z5045582)
-@output = ();
-%import_dic = ();
+
 sub argv_f {
     my ($a) = @_;
     $import_dic{sys} = 1;
@@ -31,7 +30,7 @@ while ($line = <>) {
 	#deal with 'chomp' line
 	
 	push @output, "$1$2 = $2.rstrip()\n";
-    } elsif ($line =~ /(.*)print\s*(.*);$/) {
+    } elsif ($line =~ /(.*)print\s*(.*)/) {
         
         # Python's print adds a new-line character by default
         # so we need to delete it from the Perl print statement
@@ -39,7 +38,7 @@ while ($line = <>) {
 	# Check if print contain the varibles
 	push @output, "$1print(";
 	$p_content = $2;
-	$p_content =~ s/\\n//g;
+	$p_content =~ s/\\n|;//g;
 	if ($p_content =~ /(.*),\s*(.*)/) {
 	    $p = $1;
 	    $p =~ s/\$//g;
@@ -48,52 +47,95 @@ while ($line = <>) {
 	    }
 	    push @output, "$p";
 	} elsif ($p_content =~ /"\$(.*)"/) {
-	    push @output, "$1";
+	    $p_content = $1;
+	    if ($p_content =~ /ARGV\[\$*(.*)\]/) {
+		$import_dic{sys} = 1;
+		$p_content = "sys.argv[$1 + 1]";
+	    }
+	    push @output, "$p_content";
 	} else {
 	    push @output, "$p_content";
 	}
-	if ($line =~ /\\n\";/) {
+	if ($line =~ /\\n\"/) {
 	    push @output, ")\n";
 	} else {
 	    push @output, ", end = '')\n";
 	}
-    } elsif ($line =~ /(\s*)(.*)=\s*(.*);$/){
-	
-	#give the value to varible, detect the '='
-	push @output, "$1";
-	$right = $3;
-	$left = $2;
-	if ($left =~ /\$/) {
-	    if ($right =~ /\<STDIN\>/) {
-		$import_dic{"sys"} = 1;
-		$right = "sys.stdin.readline()";
-	    } elsif ($right =~ /join\(\'(.*)\', @(.*)\)/) {
-		$right = join_f($1, $2);
-	    } elsif ($right =~ /\$/) {
-		$right =~ s/\$//g;
-	    }
-	} elsif ($left =~ /@/) {
-	    if ($right =~ /split\s*\/(.*)\/,\s*\$(.*)/) {
-		$right = "$2.split('$1')"
-	    }
-	}
-        $left =~ s/\$|@//g;
-	push @output, "$left= $right\n";
+    } elsif ($line =~ /(\s*)}\s*elsif(.*)/) {
+        push @output, "$1elif";
+        $p = $2;
+        $p =~ s/ \|\| / and /g;
+        $p =~ s/ && / or /g;
+        $p =~ s/\$|\(|\)//g;
+        $p =~ s/ ne / != /g;
+        $p =~ s/ eq / == /g;
+        $p =~ s/\s*{/:/g;
+        $p =~ s/elsif//g;
+        $p =~ s/}//g;
+        push @output, "$p\n";
     } elsif ($line =~ /if/||$line =~ /while/){
 	
 	#deal with if and while, change '||' to 'and'
 	#change '$$' to 'or', change 'ne' to '!=',
 	#change 'eq' to '=='
-	
 	$p = $line;
-	$p =~ s/ \|\| / and /g;
-	$p =~ s/ && / or /g;
-	$p =~ s/\$|\(|\)//g;
-	$p =~ s/ ne / != /g;
-	$p =~ s/ eq / == /g;
-	$p =~ s/\s*{/:/g;
+	if ($p =~ /(\s*)\$(.*)=\s*<>/) {
+	    $import_dic{"fileinput"} = 1;
+	    $p = "$1for $2in fileinput.input():\n";
+	} elsif ($p =~ /(\s*)\$(.*)=\s*<STDIN>/) {
+	    $import_dic{sys} = 1;
+	    $p = "$1for $2in sys.stdin:\n";
+	} elsif ($p =~ /(\s*)(.*)\(\s*\$(.*)\s+=~\s*\/(.*)\/\)/) {
+	    $import_dic{re} = 1;
+	    $p = "$1$2re.search('$4', $3):\n"; 
+	} else {
+	    $p =~ s/ \|\| / and /g;
+	    $p =~ s/ && / or /g;
+	    $p =~ s/\$|\(|\)//g;
+	    $p =~ s/ ne / != /g;
+	    $p =~ s/ eq / == /g;
+	    $p =~ s/\s*{/:/g;
+	}
 	push @output, "$p";
-	
+    } elsif ($line =~ /(\s*)(.*)=\s*(.*);*/){
+
+        #give the value to varible, detect the '='
+        push @output, "$1";
+        $right = $3;
+        $left = $2;
+        $left =~ s/\./+/g;
+        $right =~ s/\./+/g;
+        if ($left =~ /\$/) {
+            $left =~ s/\$//g;
+	    if ($left =~ /(.*){(.*)}/) {
+		$create_dic{$1} = 1;
+		$left = "$1\[$2\] ";
+	    }
+            if ($right =~ /\<STDIN\>/) {
+                $import_dic{sys} = 1;
+                $right = "sys.stdin.readline()";
+            } elsif ($right =~ /join\(\'(.*)\', @(.*)\)/) {
+                $right = join_f($1, $2);
+            } elsif ($right =~ /\$/) {
+                $right =~ s/\$//g;
+                if ($right =~ /ARGV\[\$*(.*)\]/) {
+                    $import_dic{sys} = 1;
+                    $right = "sys.argv[$1 + 1]";
+                }
+            } elsif ($right =~ /^~\s*s\/(.*)\/(.*)\//) {
+                $import_dic{re} = 1;
+                $right = "re.sub(r'$1', '$2',$left)";
+            }
+        } elsif ($left =~ /@/) {
+            $left =~ s/@//g;
+            if ($right =~ /split\s*\/(.*)\/,\s*\$(.*)/) {
+                $right = "$2.split('$1')"
+            }
+        }
+        $right =~ s/;//g;
+        push @output, "$left= $right\n";
+    } elsif ($line =~ /(\s*)}\s*else/) {
+	push @output, "$1else:\n";
     } elsif ($line =~ /(\s*)foreach\s*\$(.*)\s*\((.*)\)/) {
 
 	#deal with foreach
@@ -108,10 +150,31 @@ while ($line = <>) {
 	    }
 	    push @output, "$fep:\n";
 	}
-	#deal with senario like "foreach $x (1..20)"
-	elsif ($3 =~ /(\d+)..(\d+)/) {
-	    $num = $2 + 1;
-	    push @output, "range($1,$num):\n";
+	
+        #deal with senario like "foreach $x (1..20)"
+	
+	elsif ($3 =~ /(.*)\.\.(.*)/) {
+	    $start = $1;
+	    $end = $2;
+	    if ($start =~ /^\$(.*)/) {
+		$start = $1;
+	    }
+	    if ($end =~ /^\$(.*)/) {
+		$end = $1;
+		if ($end =~ /^\#(.*)/) {
+		    $end = $1;
+		    if ($end =~ /ARGV/){
+			$import_dic{sys} = 1;
+			$end = "sys.argv";
+		    }
+		    $end = "len($end)";
+		}
+	    }
+	    if ($start eq 0) {
+		push @output, "range($end + 1):\n";
+	    } else {
+		push @output, "range($start, $end + 1):\n";
+	    }
 	}
     } elsif ($line =~ /(\s*)for\(\$(.*);\s*\$(.*);\s*\$(.*)\+\+\)/) {
 	
@@ -147,6 +210,8 @@ while ($line = <>) {
 	
         push @output, "$1";
         push @output, "break\n";
+    } elsif ($line =~ /^(\s*)exit(.*);/) {
+	push @output, "$1exit$2\n";
     } else {
 	
         # Lines we can't translate are turned into comments
@@ -156,6 +221,9 @@ while ($line = <>) {
 }
 foreach $i (keys %import_dic) {
     print "import $i\n";
+}
+foreach $d (keys %create_dic) {
+    print "$d = {}\n";
 }
 foreach $x (@output) {
     print "$x";
