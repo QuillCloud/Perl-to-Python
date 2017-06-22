@@ -1,2 +1,5 @@
 #!/usr/bin/perl -w
-# put your test script here
+# not just need inilize the hash, but also need to intial values in hash
+while ($line = <>) {
+    $count{$line}++;
+}

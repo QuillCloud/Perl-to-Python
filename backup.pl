@@ -440,7 +440,7 @@ while ($line = <>) {
 	$pop = &variable($2);
 	$space = $1;
 	push @output, "$space$pop.pop()\n";
-    } elsif ($line =~ /^(\s*)unshift\s*\(*(.*)\,\s*([^;|\)]*)/) {
+    } elsif ($line =~ /(\s*)unshift\s*\(*(.*)\,\s*([^;|\)]*)/) {
 	$space = $1;
         $name = &variable($2);
         $ele = &variable($3);

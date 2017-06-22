@@ -1,1 +1,14 @@
-05/09/15	18:00	18:15	put the first real entry in diary.txt (delete this line!)
+16/09/24	18:30 	19:20	consider the ass1
+16/09/27 	21:00	24:00	start with subset0-2
+16/09/28	00:00	05:00	start with subset0-2
+16/09/28	20:00	24:00	start with subset3-4
+16/09/29	00:00	04:00	start with subset3-4
+16/09/29	22:00	24:00	find hard to change codes to satisfy subset3-4, so rebuild all the program
+16/09/30	00:00	05:00	rebuild the program, start with subset0-2
+16/09/30	22:00	24:00	coding, consider more senario
+16/10/01	00:00	24:00	subset0-3 almost done
+16/10/01        20:00   24:00	coding for subset4, also for array and hash
+16/10/02        00:00   05:00 	debugging, some match problem, like '(';
+16/10/02	18:00	24:00	debugging
+16/10/03      	00:00   08:00   more test for debugging, add some comments
+16/10/03 	19:00	21:10	last check
